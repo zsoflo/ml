@@ -1,0 +1,1688 @@
+---
+title: "Summative 2"
+author: B151705
+format:
+  html:
+    fig-width: 15
+    fig-height: 10
+    fig-caption: 9
+    embed-resources: true
+---
+
+## attach packages
+
+```{r}
+#| label: packages
+library(tidyverse)
+library(ggplot2)
+```
+
+------------------------------------------------------------------------
+
+Iconicity is the resemblance between form and meaning, and Van Hoey, Thompson, Do, and Dingemanse (2023) studied iconicity in ideophones.
+
+------------------------------------------------------------------------
+
+# *Experiment 1: Guessing Study*
+
+In Experiment 1, Van Hoey et al. replicated the design of Dingemanse, Schuerman, Reinisch, Tufvesson, and Mitterer (2016), that explored whether native speakers of Dutch could guess the correct meanings of ideophonic stimuli from Japanese, Korean, Semai, Siwu, and Ewe.
+
+Here, Van Hoey et al. they investigated how native speakers of Cantonese guess the meanings of ideophones from Japanese, Korean and Igbo. The selected ideophones fell into one of five broad semantic categories:
+
+1.  Sound - animate sounds and environmental sounds; e.g., Japanese *wanwan*, meaning "barking of dog",
+2.  Motion - animate motion and inanimate objects' motions; e.g., Korean *chingching*, meaning "circular motion",
+3.  Color-Visual - colors or static visual appearances; e.g., Igbo *chámchám*, meaning "flashing",
+4.  Shape - abstract features, like roundness, but inclusive to specific form; e.g., Japanese *panpan*, meaning "full, bursting",
+5.  Texture - surface feeling and referent consistency; e.g., Korean *maekkeunmaekkeun*, meaning "smooth".
+
+Every participant (n = 111) was tested on 126 items, and they were asked to guess the correct translations of these Japanese, Korean, and Igbo ideophones from two meaning options. Foils were from the same sensory category as targets (i.e., within-category pairings).
+
+------------------------------------------------------------------------
+
+## 1. Reading the stimuli
+
+```{r}
+#| label: stimuli
+
+stimuli <- read_csv("./data/guessing_experiment_targets_foils.csv")
+```
+
+## 2. Extracting the lengths of the stimuli, and counting the number of words of these lengths
+
+```{r}
+#| label: stimuli lengths
+
+unique(stimuli$word)
+count(stimuli, word)
+
+lengths <- stimuli %>% 
+  mutate(
+    lengths = str_length(stimuli$ascii),
+  ) %>% 
+  count(lengths) %>% 
+  mutate(
+    counts_of_words_with_these_lengths = n / 4
+    # each word is listed four times  
+  ) %>% 
+  select(-n) %>% 
+  arrange(desc(counts_of_words_with_these_lengths))
+lengths
+```
+
+There are 33 words with lengths of 8 characters in the stimuli.
+
+## 3. Reading the results
+
+```{r}
+#| label: participants
+
+participants_guessing_data <- read_csv("./data/guessing_experiment.csv")
+```
+
+## 4. Wrangling the results to extract participant demographic data
+
+```{r}
+#| label: participants ctnd.
+
+participants_only <- participants_guessing_data %>% 
+  select(participantid, group, date, ethics, gender, age, nativelanguage, english, japanese, korean, igbo)
+participants_only
+
+unique(participants_only$age)
+unique(participants_only$group)
+
+participants_only <- participants_only %>% 
+  mutate(
+    age_f = recode(age, "ten" = "10", "twenty" = "20", "thirty" = "30", "forty" = "40", "fifty" = "50", "sixty" = "60"),
+    age_f = factor(age_f, levels = c("10", "20", "30", "40", "50", "60")),
+    group_f = factor(group, levels = c("1", "2", "3", "4")),
+    participantid_short = str_remove(participantid, "participant_"),
+    participantid_short = as.numeric(participantid_short)
+  ) %>% 
+  relocate(
+    age_f, .after = age) %>% 
+  relocate(
+    group_f, .after = group) %>% 
+  relocate(
+    participantid_short, .after = participantid)  
+participants_only
+
+levels(participants_only$age_f)
+levels(participants_only$group_f)
+```
+
+## 5. Wrangling demographic data
+
+```{r}
+#| label: participants ctnd. x 2
+
+participants_demo <- participants_only %>% 
+  select(participantid_short, group_f, gender, age_f, nativelanguage)
+participants_demo
+
+participants_demo <- participants_demo %>% 
+  count(
+    participantid_short,
+    group_f,
+    gender, 
+    age_f,
+    nativelanguage,
+  )
+participants_demo
+
+participants_demo <- subset(participants_demo, select = -c(n))
+participants_demo
+```
+
+There were 111 participants in this Guessing Study, and the number of rows matches this number.
+
+## 6. Graphing demographic data
+
+```{r}
+#| label: participants ctnd. x 3
+
+participants_demo %>% 
+  filter(
+    gender %in% c("female", "male")
+  ) %>% 
+  ggplot(aes(x = gender, fill = age_f)) +
+  geom_bar(position = "fill") +
+  facet_wrap(
+    ~ group_f
+  ) +
+  labs(
+    title = "Proportions of Responses by Gender (binary), Age, and Group\n",
+    x = "\nGender",
+    y = "Proportion\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) +
+  scale_fill_discrete(
+    name = "Age",
+  ) +
+  scale_x_discrete(labels = c("Female", "Male"))
+```
+
+This figure shows the proportions of collected responses by age range for each binary gender (Female/Male) and group (1, 2, 3, 4).
+
+In all four groups, there were higher proportions of responses from females, than males (Group 1: 0.83, Group 4: 0.77, Group 3: 0.74, and Group 2: 0.52).
+
+Also, in all four groups, there were higher proportions of responses from participants in their 20s, than from any other age range (Group 3: 0.61, Group 1: 0.58, Group 4: 0.58, and Group 2: 0.55).
+
+```{r}
+#| label: demographic data, listed by descending proportions
+
+participants_demo %>%
+  filter(
+    gender %in% c("female", "male")
+  ) %>% 
+  add_count(group_f, name = "tot") %>% 
+  count(group_f, gender, age_f, tot) %>% 
+  mutate(
+    prop = round(n/tot, 2)
+  ) %>% 
+  arrange(desc(prop))
+
+participants_demo %>% 
+  filter(
+    gender %in% c("female", "male")
+  ) %>%  
+  add_count(group_f, name = "tot") %>% 
+  count(group_f, gender, tot) %>% 
+  mutate(
+    prop = round(n/tot, 2)
+  ) %>% 
+  arrange(desc(prop))
+
+participants_demo %>% 
+  filter(
+    gender %in% c("female", "male")
+  ) %>%   
+  add_count(group_f, name = "tot") %>% 
+  count(group_f, age_f, tot) %>% 
+  mutate(
+    prop = round(n/tot, 2)
+  ) %>% 
+  arrange(desc(prop))
+```
+
+## 7. Examining participants that did not report binary gender
+
+```{r}
+#| label: participants, not binary
+
+participants_demo %>% 
+  filter(
+    gender %in% c("nonbinary", "notsay")
+  ) %>% 
+  count(participantid_short, group_f, age_f, gender)
+```
+
+There were two participants who were non-binary (participant ID 35) or they did not report their gender (participant ID 66).
+
+I filtered the visualization to include binary gender only, because I did not want non-binary and not-say to be displayed as x-axis tick marks for each group, given that there were only 2 of 111 participants that fell into either of these categories.
+
+## 9. Counting correctness by language
+
+```{r}
+#| label: correctness by language
+
+guessing_experiment <- read_csv("./data/guessing_experiment.csv")
+
+count(guessing_experiment, language)
+# there are different numbers of Igbo, Japanese, and Korean trials
+# so I will want to display these the proportions of correct responses by language, not only counts...
+
+guessing_experiment %>% 
+  add_count(language, name = "tot") %>% 
+  count(language, correct, tot) %>% 
+  mutate(
+    prop = round(n / tot, 2)
+  ) %>% 
+  arrange(desc(prop))
+# proportions of correct responses greatest in Japanese (0.67), then Igbo (0.60), then Korean (0.57)
+```
+
+The proportions of correct responses by stimuli language:
+
+1.  Japanese - 0.67,
+2.  Igbo - 0.60, and
+3.  Korean - 0.57.
+
+```{r}
+#| label: correctness by sensory category
+
+guessing_experiment %>% 
+  add_count(sense, name = "tot") %>% 
+  count(sense, correct, tot) %>% 
+  mutate(
+    prop = round(n / tot, 2)
+  ) %>% 
+  arrange(desc(prop))
+# in the entire Guessing Study, proportions of correct responses greatest in Sound (0.67), then Texture (0.62), Motion (0.61), Shape (0.58), and Color-Visual (0.55)
+```
+
+The proportions of correct responses by stimuli sensory category:
+
+1.  Sound - 0.67,
+2.  Texture - 0.62,
+3.  Motion - 0.61,
+4.  Shape - 0.58, and
+5.  Color-Visual - 0.55.
+
+```{r}
+#| label: correctness by language and sensory category
+
+guessing_experiment %>% 
+  add_count(sense, name = "tot") %>% 
+  count(language, sense, correct, tot) %>% 
+  mutate(
+    prop = round(n / tot, 2)
+  ) %>% 
+  arrange(desc(prop))
+# by language and sensory category, Japanese Texture (0.26) and Shape (0.25) stimuli had the highest proportions of correct responses
+```
+
+The proportions of correct responses by stimuli language and sensory category.
+
+## 10. Graphing proportions of correct responses
+
+```{r}
+#| label: correctness by participant and language
+
+guessing_experiment <- read_csv("./data/guessing_experiment.csv")
+guessing_experiment_props <- guessing_experiment %>% 
+  group_by(participantid, language) %>% 
+  summarise(
+    correctness_guessing = sum(correct) / n(),
+    .groups = "drop"
+  )
+guessing_experiment_props
+
+ggplot() +
+  geom_jitter(
+    data = guessing_experiment_props,
+    aes(x = language, y = correctness_guessing),
+    width = 0.1, alpha = 0.5
+  ) +
+  stat_summary(
+    data = guessing_experiment,
+    aes(x = language, y = correct, colour = language),
+    fun.data = "mean_cl_boot", size = 0.5
+  ) +
+  labs(
+    title = "Proportion of Correct Responses by Participant and Language\n",
+    caption = "Mean proportion is represented by coloured points with 95% bootstrapped Confidence Intervals.",
+    x = "\nLanguage",
+    y = "Proportion\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) +
+  scale_colour_discrete(name = "Language")
+  
+guessing_experiment %>% 
+  group_by(language) %>% 
+  summarise(
+    correctness_language = sum(correct) / n(),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(correctness_language))
+```
+
+This figure shows the proportions of correct responses by participant and language.
+
+For language-specific results, responses to Japanese ideophones recorded the highest accuracy in guessing (mean of 0.67), and responses to Korean ideophones recorded the lowest accuracy in guessing (mean of 0.57).
+
+These visualizations and summary statistics match the reported data analysis results of Van Hoey et al (p. 8), though I have chosen to graph proportion of correct responses differently (they graphed the proportion of correct responses per sensory category and language via boxplots and accompanying density plots).
+
+```{r}
+#| label: correctness by participant and sensory category
+
+guessing_experiment <- read_csv("./data/guessing_experiment.csv")
+guessing_experiment_props <- guessing_experiment %>% 
+  group_by(participantid, sense) %>% 
+  summarise(
+    correctness_guessing = sum(correct) / n(),
+    .groups = "drop"
+  )
+guessing_experiment_props
+
+guessing_experiment %>% 
+  group_by(sense) %>% 
+  summarise(
+    correctness_sense = sum(correct) / n(),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(correctness_sense))
+
+ggplot() +
+  # Proportion of each participant
+  geom_jitter(
+    data = guessing_experiment_props,
+    aes(x = sense, y = correctness_guessing),
+    width = 0.1, alpha = 0.5
+  ) +
+  # Mean proportion by stimulus with confidence interval
+  stat_summary(
+    data = guessing_experiment,
+    aes(x = sense, y = correct, colour = sense),
+    fun.data = "mean_cl_boot", size = 0.5
+  ) +
+  labs(
+    title = "Proportion of Correct Responses by Participant and Sense\n",
+    caption = "Mean proportion is represented by coloured points with 95% bootstrapped Confidence Intervals.",
+    x = "\nSense",
+    y = "Proportion\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) +
+  scale_colour_discrete(name = "Sense")
+```
+
+This figure displays that the correct meanings of Sound (mean of 0.67) and Texture (mean of 0.62) ideophones were guessed best, and that ideophones in the visual modality were guessed worst: in decreasing accuracy performance, Motion (mean of 0.61), Shape (mean of 0.58), and Color-Visual (mean of 0.55).
+
+```{r}
+#| label: correctness by participant, language, and sense
+
+guessing_experiment <- read_csv("./data/guessing_experiment.csv")
+guessing_experiment_props <- guessing_experiment %>% 
+  group_by(participantid, language, sense) %>% 
+  summarise(
+    correctness_guessing = sum(correct) / n(),
+    .groups = "drop"
+  )
+guessing_experiment_props
+
+ggplot() +
+  # Proportion of each participant
+  geom_jitter(
+    data = guessing_experiment_props,
+    aes(x = sense, y = correctness_guessing),
+    width = 0.1, alpha = 0.5
+  ) +
+  facet_wrap(vars(language)) +
+  # Mean proportion by stimulus with confidence interval
+  stat_summary(
+    data = guessing_experiment,
+    aes(x = sense, y = correct, colour = sense),
+    fun.data = "mean_cl_boot", size = 0.5
+  ) +
+  labs(
+    title = "Proportion of Correct Responses by Participant, Sense, and Language\n",
+    caption = "Mean proportion is represented by coloured points with 95% bootstrapped Confidence Intervals.",
+    x = "\nSense",
+    y = "Proportion\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+    scale_colour_discrete(name = "Sense")
+```
+
+Aggregating by language and sensory category, Japanese has the highest accuracy from Motion (mean of 0.69) and Sound (mean of 0.68) ideophones, Korean has the highest accuracy from Sound (mean of 0.64) and Texture (mean of 0.60) ideophones, and Igbo has the highest accuracy from Sound (mean of 0.68) and Motion (mean of 0.60) ideophones.
+
+```{r}
+#| label: summary stats for correctness by participant, language, and sense
+
+guessing_experiment <- read_csv("./data/guessing_experiment.csv")
+guessing_experiment %>% 
+  filter(
+    language == "Japanese"
+  ) %>% 
+  add_count(sense, name = "tot") %>% 
+  count(language, sense, correct, tot) %>% 
+  mutate(
+    prop = round(n / tot, 2)
+  ) %>% 
+  arrange(desc(prop))
+
+guessing_experiment <- read_csv("./data/guessing_experiment.csv")
+guessing_experiment %>% 
+  filter(
+    language == "Korean"
+  ) %>% 
+  add_count(sense, name = "tot") %>% 
+  count(language, sense, correct, tot) %>% 
+  mutate(
+    prop = round(n / tot, 2)
+  ) %>% 
+  arrange(desc(prop))
+
+guessing_experiment <- read_csv("./data/guessing_experiment.csv")
+guessing_experiment %>% 
+  filter(
+    language == "Igbo"
+  ) %>% 
+  add_count(sense, name = "tot") %>% 
+  count(language, sense, correct, tot) %>% 
+  mutate(
+    prop = round(n / tot, 2)
+  ) %>% 
+  arrange(desc(prop))
+```
+
+## These next few code chunks and plots are additional analyses of logged reaction times.
+
+## 15. Graphing logged reaction times (density plots)
+
+```{r}
+#| label: logged reaction times by language
+
+participants_guessing_data <- read_csv("./data/guessing_experiment.csv")
+
+participants_guessing_data %>% 
+  ggplot(aes(x = log(trials_responsetime), fill = language)) +
+  geom_density(alpha = 0.7) +
+  geom_rug(alpha = 0.1) +
+  labs(
+    title = "Logged Reaction Times by Language\n",
+    x = "\nLogged reaction times",
+    y = "Density\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) + 
+  scale_fill_discrete(name = "Language")
+
+participants_guessing_data %>% 
+  group_by(language) %>% 
+  summarise(
+    RT_mean = mean(log(trials_responsetime)),
+    RT_median = median(log(trials_responsetime)),
+    .groups = "drop"
+  )
+# the logged reaction times are very small
+# the mean values are small, negative, and -Inf, as a result
+```
+
+This figure displays the density plots of logged reaction times to the Guessing Study by language. For Igbo, Japanese, and Korean, their respective curves line up nicely (the densities of logged reaction time values are similar for ideophones from all the three languages).
+
+## 16. Graphing logged reaction times (strip charts + violin plots)
+
+```{r}
+#| label: logged reaction times ctnd.
+
+participants_guessing_data %>% 
+  ggplot(aes(x = language, y = log(trials_responsetime))) +
+  geom_violin() +
+  geom_jitter(width = 0.1, alpha = 0.15) +
+  stat_summary(
+    data = participants_guessing_data,
+    aes(x = language, y = log(trials_responsetime)),
+    fun = "median",
+    geom = "point",
+    size = 1.7,
+    colour = "red"
+  ) +
+  labs(
+    title = "Logged Reaction Times by Language\n",
+    x = "\nLanguage",
+    y = "Logged Reaction Times\n"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+  )
+```
+
+This plot displays logged reaction times for responses to ideophonic stimuli from Igbo, Japanese, and Korean. The red dots indicate the medians of logged reaction times for stimuli from each language.
+
+Japanese ideophonic stimuli triggered the fastest median reaction time (1.14 - not logged), whereas Igbo ideophonic stimuli triggered the slowest median reaction time (1.19 - not logged).
+
+```{r}
+#| label: logged reaction times ctnd., again
+
+participants_guessing_data %>% 
+  ggplot(aes(x = sense, y = log(trials_responsetime))) +
+  geom_violin() +
+  geom_jitter(width = 0.1, alpha = 0.15) +
+  facet_wrap(vars(language)) +
+  stat_summary(
+    data = participants_guessing_data,
+    aes(x = sense, y = log(trials_responsetime)),
+    fun = "median",
+    geom = "point",
+    size = 1.7,
+    colour = "red"
+  ) +
+  labs(
+    title = "Logged Reaction Times by Language and Sense\n",
+    x = "\nSense",
+    y = "Logged Reaction Times\n"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+This plot displays logged reaction times for responses to stimuli from each sensory category, facet-ed for Igbo, Japanese, and Korean (by language). The red dots indicate the medians of logged reaction times for ideophonic stimuli from each sensory category.
+
+Japanese ideophonic stimuli form the sound sensory category triggered the fastest median reaction time (1.02 - not logged), whereas Igbo ideophonic stimuli from the shape sensory category triggered the slowest median reaction time (1.36 - not logged)
+
+```{r}
+#| label: summary statistics of the above plots
+
+participants_guessing_data %>% 
+  group_by(language) %>% 
+  summarise(
+    RT_mean = mean(log(trials_responsetime)),
+    RT_median = median(log(trials_responsetime)),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(RT_median))
+
+participants_guessing_data %>% 
+  group_by(language) %>% 
+  summarise(
+    RT_mean = mean(trials_responsetime),
+    RT_median = median(trials_responsetime),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(RT_median))
+
+participants_guessing_data %>% 
+  group_by(sense) %>% 
+  summarise(
+    RT_mean = mean(trials_responsetime),
+    RT_median = median(trials_responsetime),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(RT_median))
+
+participants_guessing_data %>% 
+  group_by(sense) %>% 
+  summarise(
+    RT_mean = mean(log(trials_responsetime)),
+    RT_median = median(log(trials_responsetime)),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(RT_median))
+
+participants_guessing_data %>% 
+  group_by(language, sense) %>% 
+  summarise(
+    RT_mean = mean(trials_responsetime),
+    RT_median = median(trials_responsetime),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(RT_median))
+
+participants_guessing_data %>% 
+  group_by(language, sense) %>% 
+  summarise(
+    RT_mean = mean(log(trials_responsetime)),
+    RT_median = median(log(trials_responsetime)),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(RT_median))
+```
+
+## 16. Wrangling for logged reaction times by correctness ( + summary statistics)
+
+```{r}
+#| label: logged reaction times ctnd. x 2
+
+participants_guessing_data_2 <- participants_guessing_data %>% 
+  mutate(
+    ACC_f = recode(correct, "0" = "incorrect", "1" = "correct"),
+    ACC_f = factor(ACC_f, levels = c("incorrect", "correct"))
+  ) %>% 
+  relocate(
+    ACC_f, .after = correct,
+  )
+
+participants_guessing_data_2 %>% 
+  group_by(language, ACC_f) %>% 
+  summarise(
+    RT_mean = mean(log(trials_responsetime)),
+    RT_median = median(log(trials_responsetime)),
+    .groups = "drop"
+  ) %>% arrange(desc(RT_median))
+
+participants_guessing_data_2 %>% 
+  group_by(sense, ACC_f) %>% 
+  summarise(
+    RT_mean = mean(log(trials_responsetime)),
+    RT_median = median(log(trials_responsetime)),
+    .groups = "drop"
+  ) %>% arrange(desc(RT_median))
+
+participants_guessing_data_2 %>% 
+  group_by(language, sense, ACC_f) %>% 
+  summarise(
+    RT_mean = mean(log(trials_responsetime)),
+    RT_median = median(log(trials_responsetime)),
+    .groups = "drop"
+  ) %>% arrange(desc(RT_median))
+```
+
+## 17. Graphing logged reaction times by correctness, correctness + language, and correctness + sense (density plots)
+
+```{r}
+#| label: logged reaction times ctnd. x 3
+
+participants_guessing_data_2 %>% 
+  ggplot(aes(x = log(trials_responsetime), fill = ACC_f)) +
+  geom_density(alpha = 0.7) +
+  geom_rug(alpha = 0.1) +
+  labs(
+    title = "Logged Reaction Times by Correctness\n",
+    x = "\nLogged Reaction Times",
+    y = "Density\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) + 
+  scale_fill_discrete(name = "Correctness", labels = c("Incorrect", "Correct"))
+
+participants_guessing_data_2 %>% 
+  ggplot(aes(x = log(trials_responsetime), fill = ACC_f)) +
+  geom_density(alpha = 0.7) +
+  facet_wrap(vars(language)) +
+  geom_rug(alpha = 0.1) +
+  labs(
+    title = "Logged Reaction Times by Correctness and Language\n",
+    x = "\nLogged reaction times",
+    y = "Density\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) + 
+  scale_fill_discrete(name = "Correctness", labels = c("Incorrect", "Correct"))
+
+participants_guessing_data_2 %>% 
+  ggplot(aes(x = log(trials_responsetime), fill = ACC_f)) +
+  geom_density(alpha = 0.7) +
+  facet_wrap(vars(sense)) +
+  geom_rug(alpha = 0.1) +
+  labs(
+    title = "Logged Reaction Times by Correctness and Sensory Category\n",
+    x = "\nLogged Reaction Times",
+    y = "Density\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) + 
+  scale_fill_discrete(name = "Correctness", labels = c("Incorrect", "Correct"))
+```
+
+1.  The first density plot displays that, in the Guessing Study, the densities of logged reaction times values line up nicely regardless of correctness.
+2.  The second density plot displays that the densities of logged reaction times values for correct and incorrect responses, respectively, are similar within each language. In Japanese, the density of logged reaction times values for incorrect responses was slightly lower at the point of the highest number of logged reaction times for correct responses (i.e., there were fewer observations of incorrect responses at the highest density of logged reaction time values for correct responses).
+3.  The third density plot displays the densities of logged reaction times by correctness and sensory categories. In the Sound sensory category, there is a noticeable difference in the densities of incorrect responses at the logged reaction times value where the density of correct responses was highest.
+
+## 18. Graphing logged reaction times by correctness (strip charts + violin plots)
+
+```{r}
+#| label: logged reaction times ctnd. x 4
+
+participants_guessing_data_2 %>% 
+  ggplot(aes(x = ACC_f, y = log(trials_responsetime))) +
+  geom_violin() +
+  geom_jitter(width = 0.1, alpha = 0.25) +
+  facet_wrap(vars(language)) +
+  stat_summary(
+    data = participants_guessing_data_2,
+    aes(x = ACC_f, y = log(trials_responsetime)),
+    fun = "median",
+    geom = "point",
+    size = 1.7,
+    colour = "red"
+  ) +
+  labs(
+    title = "\nLogged Reaction times by Language and Correctness\n",
+    x = "\nCorrectness",
+    y = "Logged Reaction Times\n"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+  ) +
+  scale_x_discrete(labels = c("Incorrect", "Correct"))
+```
+
+The figure displays the logged reaction times by correctness and language. The red dots indicate the median logged reaction time values by correctness within that language (given that the median can be a better reflection of where the data is the densest).
+
+(I remembered here, that logs of small values can be negative!)
+
+------------------------------------------------------------------------
+
+# *Experiment 2: Memory Task and the 2AFC Reassessment Task*
+
+In Experiment 2, Van Hoey et al. followed the study conducted by Dingemanse et al. (2016), that investigated the sensitivity of Dutch speakers to iconicity in Japanese ideophones and adjectives.
+
+in Experiment 2 of Van Hoey et al. (2023), 301 self-reported native speakers of Hong Kong Cantonese participated.
+
+First, participants learned combinations of true and coerced (i.e., false or sometimes antonymic) translations of ideophones that were pre-selected for guessability.
+
+Next, participants were told that some of the translations they had learned were incorrect, and they were asked to disregard any learned associations for the successive guessing task, where they would be asked to pick the correct translations of ideophones, then adjectives, from two meaning target (correct + foil translations). They were asked to pick the translation that felt the most natural to them. This was the two alternative forced choice reassessment task of Experiment 2.
+
+------------------------------------------------------------------------
+
+## 1. Reading the data
+
+```{r}
+#| label: reading in data
+
+memory <- read_csv("./data/memory_experiment.csv")
+```
+
+------------------------------------------------------------------------
+
+## *Memory Task*
+
+## 2. Wrangling the data for the memory task
+
+```{r}
+#| label: wrangling data
+
+unique(memory$otherlanguages)
+memory <- memory %>% 
+  separate(otherlanguages, c("japanese", "no"))
+unique(memory$japanese)
+memory$japanese <- memory$japanese %>% 
+  str_replace("japanese", "no")
+```
+
+## 3. Capitalizing the first characters in column values
+
+```{r}
+#| label: capping
+
+capFirst <- function(s) {
+  paste(toupper(substring(s, 1, 1)), substring(s, 2), sep = "")
+}
+
+memory$language <- capFirst(memory$language)
+memory$type <- capFirst(memory$type)
+memory$condition <- capFirst(memory$condition)
+memory
+```
+
+## 4. Selecting the demographic data
+
+```{r}
+#| label: selecting for demo data
+
+participants_only_memory <- memory %>% 
+  select(participantid, group, gender, handed, age, cantonese, language, type)
+participants_only_memory
+```
+
+## 5. Wrangling the demographic data
+
+```{r}
+#| label: wrangling demo data
+
+unique(participants_only_memory$age)
+unique(participants_only_memory$group)
+unique(participants_only_memory$gender)
+
+participants_only_memory <- participants_only_memory %>% 
+  mutate(
+    age_f = recode(age, "ten" = "10", "twenty" = "20", "thirty" = "30", "forty" = "40", "fifty" = "50", "sixty" = "60"),
+    age_f = factor(age_f, levels = c("10", "20", "30", "40", "50", "60")),
+    participantid_short = str_remove(participantid, "participant_"),
+    participantid_short = as.numeric(participantid_short)
+  ) %>% 
+  relocate(
+    age_f, .after = age) %>% 
+  relocate(
+    participantid_short, .after = participantid)  
+participants_only_memory
+
+levels(participants_only_memory$age_f)
+
+participants_only_memory %>% 
+  arrange(desc(participantid_short))
+```
+
+## 6. Graphing the demographic data
+
+```{r}
+#| label: demographic data
+
+participants_demographics_memory <- participants_only_memory %>% 
+  count(
+    participantid_short,
+    group,
+    gender, 
+    age_f,
+    cantonese,
+    language,
+    type
+  )
+participants_demographics_memory <- subset(participants_demographics_memory, select = -c(n))
+# there were 301 participants who completed Experiment 2, and so the number of rows matches the number of participants
+
+participants_demographics_memory %>% 
+  filter(
+    gender %in% c("nonbinary", "notsay")
+  ) %>% 
+  count(participantid_short, group, gender, age_f, cantonese, language, type)
+# there were six participants who were either non-binary (2) or they did not report their gender (4)
+# for the visualization of demographic data, I will exclude these participants
+
+participants_demographics_memory %>% 
+  filter(
+    gender %in% c("female", "male")
+  ) %>% 
+  ggplot(aes(x = gender, fill = age_f)) +
+  geom_bar(position = "fill") +
+  facet_wrap(vars(language)) +
+  labs(
+    title = "Response Proportions by Language\n",
+    x = "\nGender",
+    y = "Proportion\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) +
+  scale_fill_discrete(
+    name = "Age",
+  ) +
+  scale_x_discrete(labels = c("Female", "Male"))
+```
+
+This figure displays the demographic data for Experiment 2. Specifically, it displays the proportions of collected responses by age ranges for each binary gender (Female/Male) and stimuli language.
+
+For all three languages, there were higher proportions of collected responses from females, than males (Korean - 0.71; Igbo - 0.69; Japanese - 0.67).
+
+Also, for all three languages, the highest proportions of collected responses were from participants in their 20s (Igbo - 0.57; Japanese - 0.53; Korean - 0.47.
+
+```{r}
+#| label: demographic data summary stats
+
+participants_demographics_memory %>%
+  filter(
+    gender %in% c("female", "male")
+  ) %>% 
+  add_count(language, name = "tot") %>% 
+  count(language, gender, tot) %>% 
+  mutate(
+    prop = round(n/tot, 2)
+  ) %>% 
+  arrange(desc(prop))
+
+participants_demographics_memory %>%
+  filter(
+    gender %in% c("female", "male")
+  ) %>% 
+  add_count(language, name = "tot") %>% 
+  count(language, age_f, tot) %>% 
+  mutate(
+    prop = round(n/tot, 2)
+  ) %>% 
+  arrange(desc(prop))
+```
+
+## 7. Correctness during the Memory Task
+
+```{r}
+#| label: correctness in the memory task
+
+unique(memory$round)
+memory_test <- memory %>% 
+  filter(round == "memorytest")
+
+memory_test <- memory_test %>% 
+  mutate(memtest_fjvalue = if_else(test_fj == "f", "-0.4", "0.4")) %>%
+  mutate(memtest_correct = if_else(memtest_fjvalue == target_xpos, 1, 0)) %>% 
+  relocate(
+    memtest_correct, .after = testing_nums
+  )
+
+mem_corrects_props <- memory_test %>% 
+  group_by(participantid, condition, language, type) %>% 
+  summarise(
+    correct_propsmemtest = sum(memtest_correct) / n(),
+    .groups = "drop"
+  )
+mem_corrects_props %>% 
+    arrange(desc(correct_propsmemtest))
+
+ggplot() +
+  geom_jitter(
+    data = mem_corrects_props,
+    aes(x = condition, y = correct_propsmemtest),
+    width = 0.1, alpha = 0.5
+  ) +
+  facet_wrap(vars(language, type)) +
+  stat_summary(
+    data = memory_test, 
+    aes(x = condition, y = memtest_correct, colour = condition),
+    fun.data = "mean_cl_boot", size = 0.3
+  ) +
+  labs(
+    title = "Proportion of Correct Responses by Participant, Item Type, and Condition\n",
+    caption = "Mean proportion is represented by coloured points with 95% bootstrapped Confidence Intervals.",
+    x = "\nCondition",
+    y = "Proportion\n",
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) +
+  scale_colour_discrete(name = "Condition")
+```
+
+This figure displays the proportions of correct responses by participant, item type (ideophones or adjectives), and condition (coerced or true).
+
+Based on these visualizations, memory accuracy for ideophones and adjectives across languages and in both conditions (coerced or true) were similar. These visualizations are in line with the conclusions of Hoey et al., that across all languages, there was no added memory benefit depending on whether an item was an ideophone or an adjective or learned in a true condition versus a coerced condition (p. 13).
+
+These visualizations and their conclusions are not consistent with the results of Dingemanse et al. (2016), that found Japanese ideophones were learned significantly better in the true condition, than in the coerced condition (addressed on pp. 13-14 of Van Hoey et al.).
+
+## 8. Graphing logged reaction times in the Memory Task (density plot)
+
+```{r}
+#| label: graphing logged reaction times, memory task (density)
+
+memory_test %>% 
+  ggplot(aes(x = log(test_rt), fill = language)) +
+  geom_density(alpha = 0.7) +
+  geom_rug() +
+  facet_wrap(vars(type, condition)) +
+  labs(
+    title = "Logged Reaction times by Language, Condition, and Item Type\n",
+    x = "\nLogged Reaction Times",
+    y = "Density\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) +
+  scale_fill_discrete(name = "Language")
+```
+
+This figure displays the densities of logged reaction times by stimuli language, condition (coerced or true), and item type.
+
+To report the exact conclusions of this plots I will turn to the exact summary statistics, calculated in Section 10.
+
+## 9. Graphing logged reaction times in the Memory Task (strip chart + violin plot)
+
+```{r}
+#| label: graphing logged reaction times, memory task (strip chart + violin plot)
+
+memory_test %>% 
+  ggplot(aes(x = condition, y = log(test_rt))) +
+  geom_violin() +
+  geom_jitter(width = 0.1, alpha = 0.25) +
+  facet_wrap(vars(type)) +
+  stat_summary(
+    data = memory_test,
+    aes(x = condition, y = log(test_rt)),
+    fun = "median",
+    geom = "point",
+    size = 1.7,
+    colour = "red"
+  ) +
+  labs(
+    title = "\nLogged Reaction Times by Condition and Item Type\n",
+    x = "\nCondition",
+    y = "Logged Reaction Times\n"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+  )
+```
+
+This plot displays the logged reaction times by condition and item type.
+
+To report the exact conclusions of this plots I will turn to the exact summary statistics, calculated in Section 10.
+
+## 10. Summary statistics for logged reaction times in the Memory Task
+
+```{r}
+#| label: summary statistics 
+
+memory_test %>% 
+  group_by(type) %>% 
+  summarise(
+    RT_median = median(log(test_rt)),
+    RT_mean = mean(log(test_rt)),
+    RT_sd = sd(log(test_rt)),
+    .groups = "drop"
+    ) %>% 
+  arrange(RT_median)
+
+memory_test %>% 
+  group_by(type, condition) %>% 
+  summarise(
+    RT_median = median(log(test_rt)),
+    RT_mean = mean(log(test_rt)),
+    RT_sd = sd(log(test_rt)),
+    .groups = "drop"
+    ) %>% 
+  arrange(RT_median)
+
+memory_test %>% 
+  group_by(type) %>% 
+  summarise(
+    RT_median = median(test_rt),
+    RT_mean = mean(test_rt),
+    RT_sd = sd(test_rt),
+    .groups = "drop"
+    ) %>% 
+  arrange(RT_median)
+
+memory_test %>% 
+  group_by(type, condition) %>% 
+  summarise(
+    RT_median = median(test_rt),
+    RT_mean = mean(test_rt),
+    RT_sd = sd(test_rt),
+    .groups = "drop"
+    ) %>% 
+  arrange(RT_median)
+
+memory_test %>% 
+  group_by(condition) %>% 
+  summarise(
+    RT_median = median(test_rt),
+    RT_mean = mean(test_rt),
+    RT_sd = sd(test_rt),
+    .groups = "drop"
+    ) %>% 
+  arrange(RT_median)
+```
+
+In the Memory Task, the median response time to adjectives (0.7166000 - not logged) was greater than the response time to ideophones (0.6273875 - not logged). Adjectives triggered slower responses median reaction times.
+
+The median reaction times for ideophones were faster than adjectives across conditions (coerced or true). In other words, in the coerced condition, coerced ideophones triggered faster responses than coerced adjectives, and in the true condition, true ideophones triggered faster responses than true adjectives.
+
+Additionally, the median reaction times for adjectives presented with their actual translations was the highest (0.8090 - not logged; these triggered the slowest responses); the median reaction times for ideophones presented with their coerced translations was the lowest (0.5840 - not logged).
+
+In effect, ideophones triggered faster responses than adjectives, and my visualizations and summary statistics align with Van Hoey et al. However, they chose to display reaction time per item type in the memory task via a bar plot with error bars, which ... I did not do.
+
+## These new few code chunks and plots are additional analyses of logged reaction times.
+
+## 11. Summary statistics for logged reaction times by correctness
+
+```{r}
+#| label: summary statistics for logged reaction times by correctness, ctnd.
+
+memory_test <- memory_test %>% 
+  mutate(
+    memtest_correct_f = recode(memtest_correct, "0" = "incorrect", "1" = "correct"),
+    memtest_correct_f = factor(memtest_correct_f, levels = c("incorrect", "correct"))
+  ) %>% 
+  relocate(
+    memtest_correct_f, .after = memtest_correct,
+  )
+
+memory_test %>% 
+  group_by(memtest_correct_f) %>% 
+  summarise(
+    RT_median = median(test_rt),
+    RT_mean = mean(test_rt),
+    RT_sd = sd(test_rt),
+    .groups = "drop"
+    ) %>% 
+  arrange(RT_median)
+
+memory_test %>% 
+  group_by(type, memtest_correct_f) %>% 
+  summarise(
+    RT_median = median(test_rt),
+    RT_mean = mean(test_rt),
+    RT_sd = sd(test_rt),
+    .groups = "drop"
+    ) %>% 
+  arrange(RT_median)
+
+memory_test %>% 
+  group_by(condition, memtest_correct_f) %>% 
+  summarise(
+    RT_median = median(test_rt),
+    RT_mean = mean(test_rt),
+    RT_sd = sd(test_rt),
+    .groups = "drop"
+    ) %>% 
+  arrange(RT_median)
+```
+
+## 12. Graphing logged reaction times by correctness (density plots)
+
+```{r}
+#| label: graphing logged reaction times by correctness, memory task
+
+memory_test %>% 
+  ggplot(aes(x = log(test_rt), fill = memtest_correct_f)) +
+  geom_density(alpha = 0.7) +
+  geom_rug() +
+  facet_wrap(vars(type, condition)) +
+  labs(
+    title = "Logged Reaction Times by Correctness, Item Type, and Condition\n",
+    x = "\nLogged Reaction Times",
+    y = "Density\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) +
+  scale_fill_discrete(name = "Correctness", labels = c("Incorrect", "Correct"))
+
+memory_test %>% 
+  ggplot(aes(x = log(test_rt), fill = condition)) +
+  geom_density(alpha = 0.7) +
+  geom_rug() +
+  facet_wrap(vars(memtest_correct_f)) +
+  labs(
+    title = "Logged Reaction Times by Correctness and Condition\n",
+    x = "\nLogged Reaction Times",
+    y = "Density\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) +
+  scale_fill_discrete(name = "Condition")
+
+memory_test %>% 
+  ggplot(aes(x = log(test_rt), fill = type)) +
+  geom_density(alpha = 0.7) +
+  geom_rug() +
+  facet_wrap(vars(memtest_correct_f)) +
+  labs(
+    title = "Logged Reaction Times by Correctness and Item Type\n",
+    x = "\nLogged Reaction Times",
+    y = "Density\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) +
+  scale_fill_discrete(name = "Type")
+```
+
+## 13. Graphing logged reaction times by correctness (strip charts + violin plots)
+
+```{r}
+#| label: strip chart + violin plots for memory accuracy
+
+memory_test %>% 
+  ggplot(aes(x = memtest_correct_f, y = log(test_rt))) +
+  geom_violin() +
+  geom_jitter(width = 0.1, alpha = 0.1) +
+  facet_wrap(vars(type)) +
+  stat_summary(
+    data = memory_test,
+    aes(memtest_correct_f, log(test_rt)),
+    fun = "median",
+    geom = "point",
+    size = 1.7,
+    colour = "red"
+  ) +
+  labs(
+    title = "\nLogged Reaction Times by Type and Correctness\n",
+    x = "\nCorrectness",
+    y = "Logged reaction times\n"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+  ) +
+  scale_x_discrete(labels = c("Incorrect", "Correct"))
+```
+
+------------------------------------------------------------------------
+
+## *2AFC Task*
+
+## 14. Wrangling the data for the 2AFC task
+
+```{r}
+#| label: wrangling 2afc task data
+
+memory_2afc <- memory %>% 
+  filter(round == "twoafc")
+
+memory_2afc <- memory_2afc %>% 
+  mutate(twoafc_fjvalue = if_else(twoafc_fj == "f", "-0.4", "0.4")) %>%
+  mutate(twoafc_correct = if_else(twoafc_fjvalue == target_xpos, 1, 0))
+
+twoafc_corrects_props <- memory_2afc %>% 
+  group_by(participantid, condition, type, language) %>% 
+  summarise(
+    correct_props = sum(twoafc_correct) / n(),
+    .groups = "drop"
+  )
+
+twoafc_corrects_props %>% 
+  group_by(type, condition) %>% 
+  summarise(
+    twocorrects_median = median(correct_props),
+    twocorrects_mean = mean(correct_props),
+    twocorrects_sd = sd(correct_props),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(twocorrects_mean))
+
+twoafc_corrects_props %>% 
+  group_by(condition) %>% 
+  summarise(
+    twocorrects_median = median(correct_props),
+    twocorrects_mean = mean(correct_props),
+    twocorrects_sd = sd(correct_props),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(twocorrects_mean))
+
+twoafc_corrects_props %>% 
+  group_by(type) %>% 
+  summarise(
+    twocorrects_median = median(correct_props),
+    twocorrects_mean = mean(correct_props),
+    twocorrects_sd = sd(correct_props),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(twocorrects_mean))
+```
+
+## 15. Graphing correctness by participant, condition, item type, and language
+
+```{r}
+#| label: graphing correctness in the 2afc task
+
+twoafc_corrects_props <- memory_2afc %>% 
+  group_by(participantid, condition, type, language) %>% 
+  summarise(
+    correct_props = sum(twoafc_correct) / n(),
+    .groups = "drop"
+  )
+
+ggplot() +
+  geom_jitter(
+    data = twoafc_corrects_props,
+    aes(x = condition, y = correct_props),
+    width = 0.1, alpha = 0.5
+  ) +
+  facet_wrap(vars(type, language)) +
+  stat_summary(
+    data = memory_2afc, 
+    aes(x = condition, y = twoafc_correct, colour = condition),
+    fun.data = "mean_cl_boot", size = 0.3
+  ) +
+  labs(
+    title = "Proportion of Correct Responses by Participant, Language,\nItem Type, and Condition\n",
+    caption = "Mean proportion is represented by coloured points with 95% bootstrapped Confidence Intervals.",
+    x = "\nCondition",
+    y = "Proportion\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) +
+  scale_colour_discrete(name = "Condition")
+```
+
+This figure displays the proportions of correct responses by participant, language, item type, and condition. Across all languages and item types, the mean accuracy performance for the true meanings of both adjectives and ideophones was greater than the mean accuracy performance for the coerced meanings of both adjectives and ideophones.
+
+In effect, items taught in the true condition (i.e., forms that were paired with their actual meanings) were recalled better, and this aligns with Van Hoey et al, as well as Dingemanse et al. (2016) (addressed on pp. 17-18 of Van Hoey et al.)
+
+In effect, this data confirmed previously-reported trends, but it also displayed that the differences between conditions are more dramatic than any difference between word classes (ideophonic or adjectival stimuli) (Van Hoey et al., p. 18).
+
+To further display this final point, I have included some additional plots.
+
+(I am so sorry if I am doing too much!)
+
+```{r}
+#| label: graphing correctness, but without language
+
+ggplot() +
+  geom_jitter(
+    data = twoafc_corrects_props,
+    aes(x = condition, y = correct_props),
+    width = 0.1, alpha = 0.5
+  ) +
+  facet_wrap(vars(type)) +
+  stat_summary(
+    data = memory_2afc, 
+    aes(x = condition, y = twoafc_correct, colour = condition),
+    fun.data = "mean_cl_boot", size = 0.3
+  ) +
+  labs(
+    title = "Proportion of Correct Responses by Participant, Item Type, and Condition\n",
+    caption = "Mean proportion is represented by coloured points with 95% bootstrapped Confidence Intervals.",
+    x = "\nCondition",
+    y = "Proportion\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) +
+  scale_colour_discrete(name = "Condition")
+```
+
+Adjectives and ideophones presented with their true meanings triggered similar means of accurate responses:
+
+1.  true adjectives - 0.74, and
+2.  true ideophones - 0.72.
+
+Also, adjectives and ideophones presented with coerced meanings triggered similarly below 50% means of accurate responses:
+
+1.  coerced ideophones, 0.47, and
+2.  coerced adjectives, 0.43.
+
+```{r}
+#| label: graphing correctness, but without language, ctnd.
+
+ggplot() +
+  geom_jitter(
+    data = twoafc_corrects_props,
+    aes(x = type, y = correct_props),
+    width = 0.1, alpha = 0.5
+  ) +
+  facet_wrap(vars(condition)) +
+  stat_summary(
+    data = memory_2afc, 
+    aes(x = type, y = twoafc_correct, colour = type),
+    fun.data = "mean_cl_boot", size = 0.3
+  ) +
+  labs(
+    title = "Proportion of Correct Responses by Participant, Condition, and Item Type\n",
+    caption = "Mean proportion is represented by coloured points with 95% bootstrapped Confidence Intervals.",
+    x = "\nItem Type",
+    y = "Proportion\n"
+  ) +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) +
+  scale_colour_discrete(name = "Type")
+```
+
+This figure displays the same information as the above.
+
+## 16. Calculating summary statistics on accuracy performance
+
+```{r}
+#| label: summary statistics for correctness in th 2AFC task
+
+twoafc_corrects_props %>% 
+  group_by(type, condition) %>% 
+  summarise(
+    twocorrects_median = median(correct_props),
+    twocorrects_mean = mean(correct_props),
+    twocorrects_sd = sd(correct_props),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(twocorrects_mean))
+
+twoafc_corrects_props %>% 
+  group_by(condition) %>% 
+  summarise(
+    twocorrects_median = median(correct_props),
+    twocorrects_mean = mean(correct_props),
+    twocorrects_sd = sd(correct_props),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(twocorrects_mean))
+
+twoafc_corrects_props %>% 
+  group_by(type) %>% 
+  summarise(
+    twocorrects_median = median(correct_props),
+    twocorrects_mean = mean(correct_props),
+    twocorrects_sd = sd(correct_props),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(twocorrects_mean))
+```
+
+These are the exact summary statistics for my above plots. My graphs already include this data, and I now know not to plot these only. (That would not be the more robust, *but accurate*, way to plot percentage accuracy!
+
+## These are also extra!
+
+## 17. Calculating summary statistics for logged reaction times in the 2AFC task
+
+```{r}
+#| label: logged reaction times, 2afc
+
+memory_2afc %>% 
+  group_by(type) %>% 
+  summarise(
+    RT_median = median(twoafc_rt),
+    RT_mean = mean(twoafc_rt),
+    RT_sd = sd(twoafc_rt),
+    .groups = "drop"
+    ) %>% 
+  arrange(RT_median)
+
+memory_2afc %>% 
+  group_by(condition) %>% 
+  summarise(
+    RT_median = median(twoafc_rt),
+    RT_mean = mean(twoafc_rt),
+    RT_sd = sd(twoafc_rt),
+    .groups = "drop"
+    ) %>% 
+  arrange(RT_median)
+
+memory_2afc %>% 
+  group_by(type, condition) %>% 
+  summarise(
+    RT_median = median(twoafc_rt),
+    RT_mean = mean(twoafc_rt),
+    RT_sd = sd(twoafc_rt),
+    .groups = "drop"
+    ) %>% 
+  arrange(RT_median)
+```
+
+## 18. Graphing logged reaction times in the 2AFC task
+
+```{r}
+#| label: graphing logged reaction times, 2afc task
+
+memory_2afc %>% 
+  ggplot(aes(x = condition, y = log(twoafc_rt))) +
+  geom_violin(color="darkred") +
+  geom_jitter(width = 0.1, alpha = 0.1) +
+  facet_wrap(vars(type)) +
+  stat_summary(
+    data = memory_2afc,
+    aes(condition, log(twoafc_rt)),
+    fun = "median",
+    geom = "point",
+    size = 1.7,
+    colour = "red"
+  ) +
+  labs(
+    title = "Logged Reaction Times by Item Type and Condition\n",
+    x = "\nCondition",
+    y = "Logged Reaction Times\n"
+  ) +
+  theme(legend.position = "none") +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) 
+
+memory_2afc %>% 
+  ggplot(aes(x = type, y = log(twoafc_rt))) +
+  geom_violin(color="darkred") +
+  geom_jitter(width = 0.1, alpha = 0.1) +
+  facet_wrap(vars(condition)) +
+  stat_summary(
+    data = memory_2afc,
+    aes(type, log(twoafc_rt)),
+    fun = "median",
+    geom = "point",
+    size = 1.7,
+    colour = "red"
+  ) +
+  labs(
+    title = "Logged Reaction Times by Condition and Item Type\n",
+    x = "\nItem Type",
+    y = "Logged Reaction Times\n"
+  ) +
+  theme(legend.position = "none") +
+  theme(
+    plot.caption = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5)
+  ) 
+```
+
+These figures display the logged reaction times by item type and condition. The red dots indicate the median logged reaction times for that item type within that condition.
+
+(I was playing around with how to display the item types and the conditions.)
+
+## 19. Summary statistics for logged reaction times by correctness
+
+```{r}
+#| label: logged reation times, summary statistics, correctness, 2afc task
+
+memory_2afc <- memory_2afc %>% 
+  mutate(
+    twoafc_correct_f = recode(twoafc_correct, "0" = "incorrect", "1" = "correct"),
+    twoafc_correct_f = factor(twoafc_correct_f, levels = c("incorrect", "correct"))
+  ) %>% 
+  relocate(
+    twoafc_correct_f, .after = twoafc_correct,
+  )
+
+memory_2afc %>% 
+  group_by(twoafc_correct_f) %>% 
+  summarise(
+    RT_median = median(twoafc_rt),
+    RT_mean = mean(twoafc_rt),
+    RT_sd = sd(twoafc_rt),
+    .groups = "drop"
+    ) %>% 
+  arrange(RT_median)
+
+memory_2afc %>% 
+  group_by(type, twoafc_correct_f) %>% 
+  summarise(
+    RT_median = median(twoafc_rt),
+    RT_mean = mean(twoafc_rt),
+    RT_sd = sd(twoafc_rt),
+    .groups = "drop"
+    ) %>% 
+  arrange(RT_median)
+
+memory_2afc %>% 
+  group_by(condition, twoafc_correct_f) %>% 
+  summarise(
+    RT_median = median(twoafc_rt),
+    RT_mean = mean(twoafc_rt),
+    RT_sd = sd(twoafc_rt),
+    .groups = "drop"
+    ) %>% 
+  arrange(RT_median)
+```
+
+## 20. Graphing logged reaction times by correctness (strip charts + violin plots)
+
+```{r}
+#| label: logged reation times, correctness, 2afc task
+
+memory_2afc %>% 
+  ggplot(aes(x = twoafc_correct_f, y = log(twoafc_rt))) +
+  geom_violin() +
+  geom_jitter(width = 0.1, alpha = 0.1) +
+  facet_wrap(vars(type)) +
+  stat_summary(
+    data = memory_2afc,
+    aes(twoafc_correct_f, log(twoafc_rt)),
+    fun = "median",
+    geom = "point",
+    size = 1.7,
+    colour = "red"
+  ) +
+  labs(
+    title = "\nLogged Reaction Times by Item Type and Correctness\n",
+    x = "\nCorrectness",
+    y = "Logged Reaction Times\n"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+  ) +
+  scale_x_discrete(labels = c("Incorrect", "Correct"))
+
+memory_2afc %>% 
+  ggplot(aes(x = twoafc_correct_f, y = log(twoafc_rt))) +
+  geom_violin() +
+  geom_jitter(width = 0.1, alpha = 0.1) +
+  facet_wrap(vars(condition)) +
+  stat_summary(
+    data = memory_2afc,
+    aes(twoafc_correct_f, log(twoafc_rt)),
+    fun = "median",
+    geom = "point",
+    size = 1.7,
+    colour = "red"
+  ) +
+  labs(
+    title = "\nLogged Reaction Times by Condition and Correctness\n",
+    x = "\nCorrectness",
+    y = "Logged Reaction Times\n"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+  ) +
+  scale_x_discrete(labels = c("Incorrect", "Correct"))
+
+memory_2afc %>% 
+  ggplot(aes(x = twoafc_correct_f, y = log(twoafc_rt))) +
+  geom_violin() +
+  geom_jitter(width = 0.1, alpha = 0.1) +
+  facet_wrap(vars(type, condition)) +
+  stat_summary(
+    data = memory_2afc,
+    aes(twoafc_correct_f, log(twoafc_rt)),
+    fun = "median",
+    geom = "point",
+    size = 1.7,
+    colour = "red"
+  ) +
+  labs(
+    title = "\nLogged Reaction Times by Item Type, Condition, and Correctness\n",
+    x = "\nCorrectness",
+    y = "Logged Reaction Times\n"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+  ) +
+  scale_x_discrete(labels = c("Incorrect", "Correct"))
+```
+
+These strip chart + violin plots all display logged reaction times by correctness. However, I was playing around with how I arranged the condition and item types for the first two, and the last one facet-s by item type and condition, combining the first two.
+
+------------------------------------------------------------------------
+
+# References
+
+Dingemanse, M., Schuerman, W., Reinisch, E., Tufvesson, S., & Mitterer, H. (2016). What sound symbolism can and cannot do: Testing the iconicity of ideophones from five languages. Language, 92(2), e117--e133. <https://doi.org/10.1353/lan.2016.0034>.
+
+Van Hoey, T., Thompson, A. L., Do, Y., & Dingemanse, M. (2023). Iconicity in Ideophones: Guessing, Memorizing, and Reassessing. Cognitive Science, 47(4), e13268. <https://doi.org/10.1111/cogs.13268>.
